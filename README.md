@@ -1,12 +1,17 @@
-# Python3 Multiprocessing Framework 
+### Python3 Multiprocessing Framework 
 
 This framework implements a "workflow" based on Python3 multiprocessing libary.
-1 - In the workflow, each step can be configured to run in multiple processes.
-2 - User only needs to write code to implement each workflow step, no need to worry about handling multiprocessing.
 
-Example:
+1. In the workflow, each step can be configured to run in multiple processes.
+
+2. User only needs to write code to implement each workflow step, no need to worry about handling multiprocessing.
+
+
+##### Example:
+
 Here is a sample workflow step config in json:
-==================================================================================
+```  
+#==================================================================================
  {
     "dependency"    : "",       # --> dependency workflow step
                                 # --> if empty, this step will start immediately.
@@ -28,13 +33,15 @@ Here is a sample workflow step config in json:
  
 #---------------------------------------------------------------------------------#
 
-# --- actual code to implement step : task1
+#--- actual code to implement step : task1
 def task1(param, task=None, q_log=None, q_out=None) :
   for _ in range(20000) : 
     mp.push_q(q_out, 'task')
   return param
-  
-# --- sample code to implement step : task2
+
+
+#--- sample code to implement step : task2
+
 def task2(param, task=None, q_log=None, q_out=None) :
   if param['last_call'] == False :
     time.sleep (random.uniform(0, 0.1))
@@ -46,17 +53,25 @@ def task2(param, task=None, q_log=None, q_out=None) :
   return param 
  
 
-==================================================================================
-** refer to test.py for details **
+#==================================================================================
+```
+
+refer to test.py for details 
+
 
 To install :
-> pip install py3mproc
+
+- pip install py3mproc
 
 For upgrade:
-> pip install py3mproc --upgrade -vvv  --no-cache-dir
+
+- pip install py3mproc --upgrade -vvv  --no-cache-dir
+
 
 For PyPi upload:
-> python setup.py sdist upload -r pypi
+
+- python setup.py sdist upload -r pypi
+
 
 Any questions, please send email to : gr82morozr@gmail.com
 
