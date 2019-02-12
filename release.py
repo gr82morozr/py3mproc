@@ -14,3 +14,4 @@ with open (setup_file, 'w' ) as f:
 os.system("python setup.py sdist upload -r pypi")
 print ('pip install py3mproc --upgrade -vvv  --no-cache-dir')
 print ('pip3 install py3mproc --upgrade -vvv  --no-cache-dir')
+os.system("pip show py3mproc")

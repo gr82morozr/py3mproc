@@ -4,3 +4,4 @@ setup.cfg
 setup.py
 py3mproc\__init__.py
 py3mproc\mproc.py
+test\test.py

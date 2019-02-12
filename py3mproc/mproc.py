@@ -1,10 +1,7 @@
 #!/usr/bin/python3
 """
  Multi-Processing Framework 
- - A Python framwork to implement simple multi processes workflow
- - created by Fan Yang (gr82morozr@gmail.com)
- - change logs -
- -   ver 1.0   : init build
+
 
 """
 
@@ -290,17 +287,26 @@ class Monitor(multiprocessing.Process):
   def refresh (self,actual_interval):
     if self.procs_max <= 10 : 
       self.procs_max = 10
-    format_str = '  {0:>4} - {1:<12} : {2:>8} > [{3:' + str(self.procs_max) + '}] > {4:>8} ~ {5:>6}|{6:>5}  '
+    format_str = '  {0:>4} - {1:<12} : {2:>8} > [{3:<' + str(self.procs_max) + '}] > {4:>8} ~ {5:>6}|{6:>5}  '
     output = []
     output_str = ''
-    title = format_str.format('Seq', 'Step','Pending', ' Workers ', 'Done', 'Rate','Avg/s')
+    empty_title = format_str.format('','','','','','','')
+    title = format_str.format(
+      'Seq', 
+      tb.render('[%LMAGENTA:Step%]',align='<',width=12), 
+      tb.render('[%LRED:Pending%]',align='>',width=8), 
+      tb.render('[%LCYAN:Workers%]',align='<',width=self.procs_max), 
+      tb.render('[%LGREEN:Done%]',align='>',width=8), 
+      'Rate',
+      'Avg/s'
+    )
  
     output.append ('Time taken : ' + str ( int (tb.timer_check(self.start_time) * 1000 ) /1000 ) + ' s \n') 
-    output.append ('=' * len(title))  
+    output.append (tb.render('[%LYELLOW:' + '=' * len(empty_title) + '%]'))
     output.append (title)
-    output.append ('-' * len(title))  
+    output.append (tb.render('[%LBLUE:' + '-' * len(empty_title) + '%]'))  
 	
-	# Kepp track of last status, then calculate summary
+    # Keep track of last status, then calculate summary
     if self.last_wf_status is None :
       self.last_wf_status = self.wf_status
 
@@ -309,13 +315,18 @@ class Monitor(multiprocessing.Process):
         if self.wf_status[step]['seq'] == (idx + 1) :
           rate_now = int((self.wf_status[step]['tasks_count_sum'] - self.last_wf_status[step]['tasks_count_sum'])/actual_interval)
           rate_avg = int((self.wf_status[step]['tasks_count_sum'] / tb.timer_check(self.start_time)))
-          output.append (format_str.format(self.wf_status[step]['seq'], step ,self.get_qsize(step), self.map_status(self.wf_status[step]['workers']),self.wf_status[step]['tasks_count_sum'], rate_now,rate_avg))
+          _seq     = self.wf_status[step]['seq']
+          _step   =  tb.render('[%LMAGENTA:'  + step                                            + '%]',align='<'  ,width=12)
+          _pending = tb.render('[%LRED:'      + str(self.get_qsize(step))                       + '%]',align='>'  ,width=8)
+          _workers = tb.render('[%LCYAN:'     + self.map_status(self.wf_status[step]['workers'])+ '%]',align='<'  ,width=self.procs_max)
+          _done    = tb.render('[%LGREEN:'    + str(self.wf_status[step]['tasks_count_sum'])    + '%]',align='>'  ,width=8)
+          output.append (format_str.format(_seq, _step ,_pending, _workers, _done , rate_now, rate_avg))
           break
-    output.append('-' * len(title))      
-    output.append( '  {0:>4} - {1:<12} : {2:11}'.format ('*', '[ Logger  ]', self.q_log.qsize() ))
-    output.append( '  {0:>4} - {1:<12} : {2:11}'.format ('*', '[ Monitor ]', self.q_mtr.qsize() ))
-    output.append( '  {0:>4} - {1:<12} : {2:11}'.format ('*', '[ Manager ]', self.q_mgr.qsize() ))
-    output.append('=' * len(title))  
+    output.append (tb.render('[%LBLUE:' + '-' * len(empty_title) + '%]'))     
+    output.append( '  {0:>4} - {1:<12} : {2:>11}'.format ('*', tb.render('[%BRIGHT:[ Logger  ]%]',align='<',width=12), tb.render('[%LCYAN:' + str(self.q_log.qsize()) + '%]', align='>', width=11)  ))
+    output.append( '  {0:>4} - {1:<12} : {2:>11}'.format ('*', tb.render('[%BRIGHT:[ Monitor ]%]',align='<',width=12), tb.render('[%LCYAN:' + str(self.q_mtr.qsize()) + '%]', align='>', width=11)  ))
+    output.append( '  {0:>4} - {1:<12} : {2:>11}'.format ('*', tb.render('[%BRIGHT:[ Manager ]%]',align='<',width=12), tb.render('[%LCYAN:' + str(self.q_mgr.qsize()) + '%]', align='>', width=11)  ))
+    output.append (tb.render('[%LYELLOW:' + '=' * len(empty_title) + '%]'))
     output.append('\n') 
     output_str = '\n'.join(output)
 

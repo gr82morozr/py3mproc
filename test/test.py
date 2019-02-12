@@ -92,8 +92,8 @@ def get_config() :
             },
 
             "logger" : {
-                  "log_file"      : "R:/TEMP/1.log",
-                  "log_level"     : "DEBUG"
+                  "log_file"      : "C:/TEMP/1.log",
+                  "log_level"     : "ERROR"
             }
           }
   return config
@@ -110,7 +110,7 @@ def task2(param, task=None, q_log=None, q_out=None) :
     for _ in range( int(40 * random.uniform(0, 1))) : 
       mp.push_q(q_out, 'task')  
   else :
-    tb.write_file ('R:/aa.log', 'done')
+    tb.write_file ('C:/temp/aa.log', 'done')
   param['last_call_required'] = True    
   return param 
 
