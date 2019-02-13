@@ -15,8 +15,7 @@ import random
 
 def default_config() :
   config = {
-            "default" : 
-            {
+            "default" : {
                 "start_task"        : "__START_TASK__",
                 "end_task"          : "__END_TASK__",
                 "kill_task"         : "__KILL_TASK__",    
@@ -158,7 +157,8 @@ class Worker(multiprocessing.Process):
     
     if (status in [ "exited" , "started", "ended", "error" ] ) or (self.tasks_count % 20 == 0):
       self.q_mgr.put(self.task_status)
-
+    #self.q_mgr.put(self.task_status)
+    
   def run(self):
     self.update_status('started')
     while True: 
@@ -255,7 +255,10 @@ class Monitor(multiprocessing.Process):
     self.q_mgr          = q_mgr
     self.q_log          = q_log
     self.u_name         = 'Monitor'
+    self.end_task_max   = self.config['default']['end_task_max']
+    self.end_task_count = 0
     self.q_timeout      = 1
+    self.log_filter     = self.config['logger']['log_level']
     self.wf_status      = None
     self.last_wf_status = None
     self.start_time     = tb.timer_start()
@@ -272,6 +275,7 @@ class Monitor(multiprocessing.Process):
   def get_message(self):
     try :  
       message = self.q_mtr.get(timeout=self.q_timeout)
+      gen_log(comp = self.u_name, loglvl = 'ERROR', logtxt = 'message:' + str(message) , q_log=self.q_log)
       return message
     except : 
       return None
@@ -315,10 +319,20 @@ class Monitor(multiprocessing.Process):
         if self.wf_status[step]['seq'] == (idx + 1) :
           rate_now = int((self.wf_status[step]['tasks_count_sum'] - self.last_wf_status[step]['tasks_count_sum'])/actual_interval)
           rate_avg = int((self.wf_status[step]['tasks_count_sum'] / tb.timer_check(self.start_time)))
+          _workers_status = self.map_status(self.wf_status[step]['workers'])
+          _last_workers_status = self.map_status(self.last_wf_status[step]['workers'])
           _seq     = self.wf_status[step]['seq']
-          _step   =  tb.render('[%LMAGENTA:'  + step                                            + '%]',align='<'  ,width=12)
+          # change color when all worker processes completed.
+          # - prevent incorrect FIFO sequence
+          if _last_workers_status == '.' * len(_workers_status): _workers_status = _last_workers_status
+          if _workers_status != '.' * len(_workers_status) :
+            _step   =  tb.render('[%LMAGENTA:'  + step + '%]',align='<'  ,width=12)
+            _workers = tb.render('[%LCYAN:'     + _workers_status + '%]',align='<'  ,width=self.procs_max)
+          else:
+            _step   =  tb.render('[%LGRAY:'     + step + '%]',align='<'  ,width=12)
+            _workers = tb.render('[%LGRAY:'     + _workers_status + '%]',align='<'  ,width=self.procs_max)
+            
           _pending = tb.render('[%LRED:'      + str(self.get_qsize(step))                       + '%]',align='>'  ,width=8)
-          _workers = tb.render('[%LCYAN:'     + self.map_status(self.wf_status[step]['workers'])+ '%]',align='<'  ,width=self.procs_max)
           _done    = tb.render('[%LGREEN:'    + str(self.wf_status[step]['tasks_count_sum'])    + '%]',align='>'  ,width=8)
           output.append (format_str.format(_seq, _step ,_pending, _workers, _done , rate_now, rate_avg))
           break
@@ -326,7 +340,7 @@ class Monitor(multiprocessing.Process):
     output.append( '  {0:>4} - {1:<12} : {2:>11}'.format ('*', tb.render('[%BRIGHT:[ Logger  ]%]',align='<',width=12), tb.render('[%LCYAN:' + str(self.q_log.qsize()) + '%]', align='>', width=11)  ))
     output.append( '  {0:>4} - {1:<12} : {2:>11}'.format ('*', tb.render('[%BRIGHT:[ Monitor ]%]',align='<',width=12), tb.render('[%LCYAN:' + str(self.q_mtr.qsize()) + '%]', align='>', width=11)  ))
     output.append( '  {0:>4} - {1:<12} : {2:>11}'.format ('*', tb.render('[%BRIGHT:[ Manager ]%]',align='<',width=12), tb.render('[%LCYAN:' + str(self.q_mgr.qsize()) + '%]', align='>', width=11)  ))
-    output.append (tb.render('[%LYELLOW:' + '=' * len(empty_title) + '%]'))
+    output.append(tb.render('[%LYELLOW:' + '=' * len(empty_title) + '%]'))
     output.append('\n') 
     output_str = '\n'.join(output)
 
@@ -340,20 +354,25 @@ class Monitor(multiprocessing.Process):
     while True:
       try :
         message = self.get_message()
+        if message is None : continue
         if message  == self.config['default']['end_task']:  
+          self.end_task_count +=1
           self.refresh(actual_interval=tb.timer_check(now))
-          break
-        if (tb.timer_check(now)) >= self.config ['monitor']['refresh_interval']  : 
-          if message is not None :
-            self.wf_status = message
-          
-          if self.wf_status is None: 
+          if self.end_task_count >= self.end_task_max:
+            break
+          else:
+            self.q_mtr.put(self.config['default']['end_task'])
+            time.sleep(random.uniform(0, 1))
             continue
+        else:
+          end_task_count  = 0
+          self.wf_status = message
+          if (tb.timer_check(now)) >= self.config ['monitor']['refresh_interval']  : 
+            if self.wf_status is None: continue
+            self.refresh(actual_interval=tb.timer_check(now))
+            self.last_wf_status = self.wf_status
+            now = tb.timer_start()
             
-          self.refresh(actual_interval=tb.timer_check(now))
-          self.last_wf_status = self.wf_status
-          now = tb.timer_start()
-          
       except KeyboardInterrupt:
         gen_log(comp = self.u_name, loglvl = 'INFO', logtxt =  'CTL-C Interrupted!', q_log=self.q_log, log_filter=self.log_filter)
         self.q_mgr.put(self.config ['default']['kill_task'])

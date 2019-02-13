@@ -10,7 +10,7 @@ import time
 
 def get_config() :
   config = {
-            "task_module"       : "test",            
+            "task_module"       : "test",
             "workflow" : {
               "steps" : [
                           {
@@ -100,7 +100,7 @@ def get_config() :
 
 
 def task1(param, task=None, q_log=None, q_out=None) :
-  for _ in range(20000) : 
+  for _ in range(20) : 
     mp.push_q(q_out, 'task')
   return param
 
