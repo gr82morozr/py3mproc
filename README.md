@@ -7,7 +7,7 @@ This framework implements a "workflow" based on Python3 multiprocessing libary.
 2. User only needs to write code to implement each workflow step, no need to worry about handling multiprocessing.
 
 
-##### Example:
+##### Configuration Example:
 
 Here is a sample workflow step config in json:
 ```  
@@ -56,7 +56,12 @@ def task2(param, task=None, q_log=None, q_out=None) :
 #==================================================================================
 ```
 
-refer to test.py for details 
+Please refer to test/test.py for a complete example.
+
+##### Screenshot:
+
+![Screenshot](https://github.com/gr82morozr/py3mproc/blob/master/docs/windows10.png)
+
 
 
 To install :
