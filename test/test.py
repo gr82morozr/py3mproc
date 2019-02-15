@@ -53,14 +53,14 @@ def get_config() :
                             "join_wait"     : False,    
                             "trigger_start" : False,                             
                             "name"          : "task6", 
-                            "mproc_num"     : 8
+                            "mproc_num"     : 80
                           },
                           {
                             "dependency"    : "task6",
                             "join_wait"     : False,    
                             "trigger_start" : False,                             
                             "name"          : "task7", 
-                            "mproc_num"     : 70
+                            "mproc_num"     : 7
                           },
                           {
                             "dependency"    : "task7",
@@ -71,7 +71,7 @@ def get_config() :
                           },
                           {
                             "dependency"    : "task8",
-                            "join_wait"     : False,    
+                            "join_wait"     : False,     
                             "trigger_start" : False,                             
                             "name"          : "task9", 
                             "mproc_num"     : 7
@@ -100,7 +100,7 @@ def get_config() :
 
 
 def task1(param, task=None, q_log=None, q_out=None) :
-  for _ in range(20) : 
+  for _ in range(22) : 
     mp.push_q(q_out, 'task')
   return param
 
@@ -126,7 +126,7 @@ def task4(param, task=None, q_log=None, q_out=None) :
   return param     
 
 def task5(param, task=None, q_log=None, q_out=None) :
-  time.sleep (0.01 * random.uniform(0, 1))
+  time.sleep (0.01 * random.uniform(0, 0.1))
   mp.push_q(q_out, 'task')  
   return param   
 

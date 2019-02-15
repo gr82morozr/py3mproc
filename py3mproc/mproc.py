@@ -28,14 +28,14 @@ def default_config() :
                 "progress_bar_max"  : 80,
                 "proc_status"       : {
                                         "null"            : " ",
-                                        "started"         : "^",
+                                        "started"         : "↑",
                                         "waiting"         : "_",
-                                        "running"         : "R",
+                                        "running"         : "►",
                                         "done"            : "√",
-                                        "ended"           : "*",
+                                        "ended"           : "○",
                                         "exited"          : ".",                      
                                         "error"           : "!",
-                                        "terminated"      : "X"
+                                        "killed"          : "X"
                                       },
                 "log_format"        : "{0:22} : {1:16} : {2:5} - {3}",
                 "log_batch"         : 200,
@@ -155,9 +155,11 @@ class Worker(multiprocessing.Process):
     else :
       gen_log(comp = self.u_name, loglvl = 'DEBUG', logtxt = status, q_log=self.q_log, log_filter=self.log_filter)
     
-    if (status in [ "exited" , "started", "ended", "error" ] ) or (self.tasks_count % 20 == 0):
+    if self.q_mgr.qsize() > 1000 : 
+      if (status in [ "exited" , "running", "done", "started", "ended", "error" ] ) or (self.tasks_count % 20 == 0):
+        self.q_mgr.put(self.task_status)
+    else:
       self.q_mgr.put(self.task_status)
-    #self.q_mgr.put(self.task_status)
     
   def run(self):
     self.update_status('started')
@@ -237,7 +239,7 @@ class Worker(multiprocessing.Process):
         if  self.trigger_start == False and self.task is not None: 
           self.q_in.put(self.task)
         else:
-          self.update_status('terminated')
+          self.update_status('killed')
           break
         
           
@@ -263,8 +265,27 @@ class Monitor(multiprocessing.Process):
     self.last_wf_status = None
     self.start_time     = tb.timer_start()
     self.procs_max      = 1
+    self.top_banner     = ''
+    self.bottom_banner  = ''
+    self.init_monitor()
     pass
 
+  def init_monitor(self):
+    self.top_banner   = '        {0:<20}'.format(tb.render('[%BRIGHT|BLUE_BG:  ' + 'TEST' + '  %]', align='<', width =15) )
+    bottom_banner_str = '  {0:>15}:{1:1} {2:>15}:{3:1} {4:>15}:{5:1} {6:>15}:{7:1}'
+    
+    self.bottom_banner += bottom_banner_str.format(
+      tb.render('[%BLUE_BG|LYELLOW:worker started%]', align='>', width=15) , tb.render('[%LCYAN:' + self.config ['default']['proc_status']['started'] + '%]', align='<', width=1),
+      tb.render('[%BLUE_BG|LYELLOW:worker waiting%]', align='>', width=15) , tb.render('[%LCYAN:' + self.config ['default']['proc_status']['waiting'] + '%]', align='<', width=1),
+      tb.render('[%BLUE_BG|LYELLOW:worker running%]', align='>', width=15) , tb.render('[%LCYAN:' + self.config ['default']['proc_status']['running'] + '%]', align='<', width=1),
+      tb.render('[%BLUE_BG|LYELLOW:task completed%]', align='>', width=15) , tb.render('[%LCYAN:' + self.config ['default']['proc_status']['done'] + '%]', align='<', width=1)) + '\n'
+    self.bottom_banner += bottom_banner_str.format(
+      tb.render('[%BLUE_BG|LYELLOW:worker retired%]', align='>', width=15) , tb.render('[%LCYAN:' + self.config ['default']['proc_status']['ended'] + '%]', align='<', width=1),
+      tb.render('[%BLUE_BG|LYELLOW:step completed%]', align='>', width=15) , tb.render('[%LCYAN:' + self.config ['default']['proc_status']['exited'] + '%]', align='<', width=1),
+      tb.render('[%BLUE_BG|LYELLOW:  task error  %]', align='>', width=15) , tb.render('[%LCYAN:' + self.config ['default']['proc_status']['error'] + '%]', align='<', width=1),
+      tb.render('[%BLUE_BG|LYELLOW:worker  killed%]', align='>', width=15) , tb.render('[%LCYAN:' + self.config ['default']['proc_status']['killed'] + '%]', align='<', width=1))+ '\n'
+
+    
   def map_status (self, status):
     mapped_status = list (status)
     if (len(mapped_status)> self.procs_max) : self.procs_max = len(mapped_status)
@@ -304,8 +325,7 @@ class Monitor(multiprocessing.Process):
       'Rate',
       'Avg/s'
     )
- 
-    output.append ('Time taken : ' + str ( int (tb.timer_check(self.start_time) * 1000 ) /1000 ) + ' s \n') 
+    output.append (self.top_banner)
     output.append (tb.render('[%LYELLOW:' + '=' * len(empty_title) + '%]'))
     output.append (title)
     output.append (tb.render('[%LBLUE:' + '-' * len(empty_title) + '%]'))  
@@ -341,7 +361,8 @@ class Monitor(multiprocessing.Process):
     output.append( '  {0:>4} - {1:<12} : {2:>11}'.format ('*', tb.render('[%BRIGHT:[ Monitor ]%]',align='<',width=12), tb.render('[%LCYAN:' + str(self.q_mtr.qsize()) + '%]', align='>', width=11)  ))
     output.append( '  {0:>4} - {1:<12} : {2:>11}'.format ('*', tb.render('[%BRIGHT:[ Manager ]%]',align='<',width=12), tb.render('[%LCYAN:' + str(self.q_mgr.qsize()) + '%]', align='>', width=11)  ))
     output.append(tb.render('[%LYELLOW:' + '=' * len(empty_title) + '%]'))
-    output.append('\n') 
+    output.append(self.bottom_banner)
+    output.append ('Time taken : ' + str ( int (tb.timer_check(self.start_time) * 1000 ) /1000 ) + ' s \n') 
     output_str = '\n'.join(output)
 
     if self.config ['monitor']['refresh'] == True:  tb.cls()
@@ -655,7 +676,7 @@ class Manager(multiprocessing.Process):
           self.run_next_step(step_name)
 
 
-  def run_wf_wrapper(self):
+  def run_wf_wrapper(self): 
     # start all processes (except join_wait=True)
     self.start_wf()
     while True:  
