@@ -11,6 +11,7 @@ import time
 def get_config() :
   config = {
             "task_module"       : "test",
+			"title"				: "Test Python Multiprocessing Workflow",
             "workflow" : {
               "steps" : [
                           {
@@ -100,7 +101,7 @@ def get_config() :
 
 
 def task1(param, task=None, q_log=None, q_out=None) :
-  for _ in range(22) : 
+  for _ in range(5) : 
     mp.push_q(q_out, 'task')
   return param
 

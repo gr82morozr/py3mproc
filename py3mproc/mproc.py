@@ -271,19 +271,19 @@ class Monitor(multiprocessing.Process):
     pass
 
   def init_monitor(self):
-    self.top_banner   = '        {0:<20}'.format(tb.render('[%BRIGHT|BLUE_BG:  ' + 'TEST' + '  %]', align='<', width =15) )
-    bottom_banner_str = '  {0:>15}:{1:1} {2:>15}:{3:1} {4:>15}:{5:1} {6:>15}:{7:1}'
+    self.top_banner   = '        {0:<20}'.format(tb.render('[%BRIGHT|MAGENTA_BG:  ' + self.config['title'] + '  %]', align='<', width =15) )
+    bottom_banner_str = ' {0:>10} : {1:1} {2:>10} : {3:1} {4:>10} : {5:1} {6:>10} : {7:1}'
     
     self.bottom_banner += bottom_banner_str.format(
-      tb.render('[%BLUE_BG|LYELLOW:worker started%]', align='>', width=15) , tb.render('[%LCYAN:' + self.config ['default']['proc_status']['started'] + '%]', align='<', width=1),
-      tb.render('[%BLUE_BG|LYELLOW:worker waiting%]', align='>', width=15) , tb.render('[%LCYAN:' + self.config ['default']['proc_status']['waiting'] + '%]', align='<', width=1),
-      tb.render('[%BLUE_BG|LYELLOW:worker running%]', align='>', width=15) , tb.render('[%LCYAN:' + self.config ['default']['proc_status']['running'] + '%]', align='<', width=1),
-      tb.render('[%BLUE_BG|LYELLOW:task completed%]', align='>', width=15) , tb.render('[%LCYAN:' + self.config ['default']['proc_status']['done'] + '%]', align='<', width=1)) + '\n'
+      tb.render('[%BLUE_BG|LYELLOW: STARTED %]', align='>', width=15) , tb.render('[%LCYAN:' + self.config ['default']['proc_status']['started'] + '%]', align='<', width=1),
+      tb.render('[%BLUE_BG|LYELLOW: WAITING %]', align='>', width=15) , tb.render('[%LCYAN:' + self.config ['default']['proc_status']['waiting'] + '%]', align='<', width=1),
+      tb.render('[%BLUE_BG|LYELLOW: RUNNING %]', align='>', width=15) , tb.render('[%LCYAN:' + self.config ['default']['proc_status']['running'] + '%]', align='<', width=1),
+      tb.render('[%BLUE_BG|LYELLOW:  DONE   %]', align='>', width=15) , tb.render('[%LCYAN:' + self.config ['default']['proc_status']['done'] + '%]', align='<', width=1)) + '\n'
     self.bottom_banner += bottom_banner_str.format(
-      tb.render('[%BLUE_BG|LYELLOW:worker retired%]', align='>', width=15) , tb.render('[%LCYAN:' + self.config ['default']['proc_status']['ended'] + '%]', align='<', width=1),
-      tb.render('[%BLUE_BG|LYELLOW:step completed%]', align='>', width=15) , tb.render('[%LCYAN:' + self.config ['default']['proc_status']['exited'] + '%]', align='<', width=1),
-      tb.render('[%BLUE_BG|LYELLOW:  task error  %]', align='>', width=15) , tb.render('[%LCYAN:' + self.config ['default']['proc_status']['error'] + '%]', align='<', width=1),
-      tb.render('[%BLUE_BG|LYELLOW:worker  killed%]', align='>', width=15) , tb.render('[%LCYAN:' + self.config ['default']['proc_status']['killed'] + '%]', align='<', width=1))+ '\n'
+      tb.render('[%BLUE_BG|LYELLOW:  ENDED  %]', align='>', width=15) , tb.render('[%LCYAN:' + self.config ['default']['proc_status']['ended'] + '%]', align='<', width=1),
+      tb.render('[%BLUE_BG|LYELLOW: EXITED  %]', align='>', width=15) , tb.render('[%LCYAN:' + self.config ['default']['proc_status']['exited'] + '%]', align='<', width=1),
+      tb.render('[%BLUE_BG|LYELLOW:  ERROR  %]', align='>', width=15) , tb.render('[%LCYAN:' + self.config ['default']['proc_status']['error'] + '%]', align='<', width=1),
+      tb.render('[%BLUE_BG|LYELLOW: KILLED  %]', align='>', width=15) , tb.render('[%LCYAN:' + self.config ['default']['proc_status']['killed'] + '%]', align='<', width=1))+ '\n'
 
     
   def map_status (self, status):
@@ -310,13 +310,13 @@ class Monitor(multiprocessing.Process):
     return 0
 
   def refresh (self,actual_interval):
-    if self.procs_max <= 10 : 
-      self.procs_max = 10
-    format_str = '  {0:>4} - {1:<12} : {2:>8} > [{3:<' + str(self.procs_max) + '}] > {4:>8} ~ {5:>6}|{6:>5}  '
+    if self.procs_max <= 10 : self.procs_max = 10
+	
+    format_str = '  {0:>4} - {1:<12} : {2:>8} > [{3:<' + str(self.procs_max) + '}] > {4:>8} ~ {5:>6}|{6:>5}   '
     output = []
     output_str = ''
     empty_title = format_str.format('','','','','','','')
-    title = format_str.format(
+    header = format_str.format(
       'Seq', 
       tb.render('[%LMAGENTA:Step%]',align='<',width=12), 
       tb.render('[%LRED:Pending%]',align='>',width=8), 
@@ -325,9 +325,11 @@ class Monitor(multiprocessing.Process):
       'Rate',
       'Avg/s'
     )
+	
+    output.append ("")
     output.append (self.top_banner)
     output.append (tb.render('[%LYELLOW:' + '=' * len(empty_title) + '%]'))
-    output.append (title)
+    output.append (header)
     output.append (tb.render('[%LBLUE:' + '-' * len(empty_title) + '%]'))  
 	
     # Keep track of last status, then calculate summary
@@ -357,9 +359,9 @@ class Monitor(multiprocessing.Process):
           output.append (format_str.format(_seq, _step ,_pending, _workers, _done , rate_now, rate_avg))
           break
     output.append (tb.render('[%LBLUE:' + '-' * len(empty_title) + '%]'))     
-    output.append( '  {0:>4} - {1:<12} : {2:>11}'.format ('*', tb.render('[%BRIGHT:[ Logger  ]%]',align='<',width=12), tb.render('[%LCYAN:' + str(self.q_log.qsize()) + '%]', align='>', width=11)  ))
-    output.append( '  {0:>4} - {1:<12} : {2:>11}'.format ('*', tb.render('[%BRIGHT:[ Monitor ]%]',align='<',width=12), tb.render('[%LCYAN:' + str(self.q_mtr.qsize()) + '%]', align='>', width=11)  ))
-    output.append( '  {0:>4} - {1:<12} : {2:>11}'.format ('*', tb.render('[%BRIGHT:[ Manager ]%]',align='<',width=12), tb.render('[%LCYAN:' + str(self.q_mgr.qsize()) + '%]', align='>', width=11)  ))
+    output.append( '  {0:>4} - {1:<12} : {2:>11}'.format ('*', tb.render('[%BRIGHT|GREEN_BG: Logger  %]',align='<',width=12), tb.render('[%LCYAN:' + str(self.q_log.qsize()) + '%]', align='>', width=11)  ))
+    output.append( '  {0:>4} - {1:<12} : {2:>11}'.format ('*', tb.render('[%BRIGHT|GREEN_BG: Monitor %]',align='<',width=12), tb.render('[%LCYAN:' + str(self.q_mtr.qsize()) + '%]', align='>', width=11)  ))
+    output.append( '  {0:>4} - {1:<12} : {2:>11}'.format ('*', tb.render('[%BRIGHT|GREEN_BG: Manager %]',align='<',width=12), tb.render('[%LCYAN:' + str(self.q_mgr.qsize()) + '%]', align='>', width=11)  ))
     output.append(tb.render('[%LYELLOW:' + '=' * len(empty_title) + '%]'))
     output.append(self.bottom_banner)
     output.append ('Time taken : ' + str ( int (tb.timer_check(self.start_time) * 1000 ) /1000 ) + ' s \n') 
@@ -609,7 +611,7 @@ class Manager(multiprocessing.Process):
     
     self.logger.start()
     self.monitor.start()
-    time.sleep(5)
+    time.sleep(10)
     self.update_wf_status()
 
     # start workers
@@ -643,7 +645,7 @@ class Manager(multiprocessing.Process):
     return self.wf_ended 
 
   def run_next_step(self, step_ended):
-    # run next steps
+    # run next step
     for step in self.wf_config['workflow']['steps']:
       name  = step['name']
       dependency_name = step['dependency']
