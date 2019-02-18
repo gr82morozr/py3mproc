@@ -7,7 +7,11 @@ This framework implements a workflow framework based on Python3 multiprocessing 
 
 2. User only needs to write code to implement each workflow step, no need to worry about handling multiprocessing.
 
-3. Platform independent. 
+3. Real-time monitor of the workflow execution.
+
+4. Platform independent. 
+
+
 
 ##### Configuration Example:
 
