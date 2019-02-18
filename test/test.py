@@ -11,7 +11,7 @@ import time
 def get_config() :
   config = {
             "task_module"       : "test",
-			"title"				: "Test Python Multiprocessing Workflow",
+            "title"				      : "Test Python Multiprocessing Workflow",
             "workflow" : {
               "steps" : [
                           {

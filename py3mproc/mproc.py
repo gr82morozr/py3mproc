@@ -296,7 +296,6 @@ class Monitor(multiprocessing.Process):
   def get_message(self):
     try :  
       message = self.q_mtr.get(timeout=self.q_timeout)
-      gen_log(comp = self.u_name, loglvl = 'ERROR', logtxt = 'message:' + str(message) , q_log=self.q_log)
       return message
     except : 
       return None
