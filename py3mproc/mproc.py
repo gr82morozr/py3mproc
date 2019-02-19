@@ -156,7 +156,7 @@ class Worker(multiprocessing.Process):
       gen_log(comp = self.u_name, loglvl = 'DEBUG', logtxt = status, q_log=self.q_log, log_filter=self.log_filter)
     
     if self.q_mgr.qsize() > 1000 : 
-      if (status in [ "exited" , "running", "done", "started", "ended", "error" ] ) or (self.tasks_count % 20 == 0):
+      if (status in [ "exited" , "started", "ended", "error" ] ) or (self.tasks_count % 20 == 0):
         self.q_mgr.put(self.task_status)
     else:
       self.q_mgr.put(self.task_status)
