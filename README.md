@@ -1,6 +1,6 @@
 ### Python3 Multiprocessing Workflow Framework 
 
-This framework implements a workflow framework based on Python3 multiprocessing libary. There are many programs can be broken down into simple steps and executed them in parrallel, it would be easier to maintain each simple step and more efficient to run by multiple processes.
+This framework implements a workflow framework based on Python3 multiprocessing libary. There are many programs can be broken down into simple steps and executed in parrallel, it would be easier to maintain each simple step and more efficient to run by multiple processes.
 
 
 1. In the workflow, each step can be configured to run in multiple processes.
