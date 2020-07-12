@@ -1,3 +1,12 @@
-### Python3 Machine Learning Toolbox
+# Python3 Multiprocessing Framework 
 
-T
+
+For install :
+> pip install py3mproc 
+
+For upgrade:
+> pip install py3toolbox --upgrade --no-cache-dir
+
+For PyPi upload:
+> python setup.py sdist upload -r pypi
+
