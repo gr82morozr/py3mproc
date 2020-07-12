@@ -4,6 +4,8 @@ setup_file = 'setup.py'
 
 with open (setup_file, 'r' ) as f:
     content = f.read()
+    
+    
 m = re.search(r"\s*version\s*=\s*\'(\d+)\.(\d+)\.(\d+)\'", content, flags=0)    
 version     = m.group(1) + '.' + m.group(2) + '.' + m.group(3)
 new_version = m.group(1) + '.' + m.group(2) + '.' + str(int(m.group(3)) + 1)
