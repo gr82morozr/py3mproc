@@ -2,7 +2,7 @@ from distutils.core import setup
 setup(
   name          = 'py3mproc',
   packages      = ['py3mproc'],
-  version       = '0.0.98',
+  version       = '0.1.2',
   description   = 'A Python3 multiprocessing workflow',
   author        = 'Fan Yang',
   author_email  = 'gr82morozr@gmail.com',

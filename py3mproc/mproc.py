@@ -16,7 +16,7 @@
 """
 
 import os,sys,time,multiprocessing
-import logging
+import psutil
 import json
 import py3toolbox as tb
 import time
@@ -274,7 +274,7 @@ class Worker(multiprocessing.Process):
           self.update_status('ended')
           break
       except KeyboardInterrupt:
-        self.log_task(loglvl = 'INFO', logtxt =  'CTL-C Interrupted!')
+        self.log_task(loglvl = 'INFO', logtxt = self.u_name + ': CTL-C Interrupted!')
         self.q_mgr.put(self.config['kill_task'])
         break          
       except Exception as err: 
@@ -314,10 +314,11 @@ class Monitor(multiprocessing.Process):
     self.wf_status      = None
     self.last_wf_status = None
     self.start_time     = tb.timer_start()
-    self.procs_max      = 1
+    self.max_workers    = None      
     self.top_banner     = ''
     self.bottom_banner  = ''
     self.empty_title    = ''
+    self.format_str     = ''
     self.init_monitor()
     pass
 
@@ -337,10 +338,8 @@ class Monitor(multiprocessing.Process):
       tb.render('[%BLUE_BG|LYELLOW:  ERROR  %]', align='>', width=15) , tb.render('[%LCYAN:' + self.config ['default']['proc_status']['error'] + '%]', align='<', width=1),
       tb.render('[%BLUE_BG|LYELLOW: KILLED  %]', align='>', width=15) , tb.render('[%LCYAN:' + self.config ['default']['proc_status']['killed'] + '%]', align='<', width=1))+ '\n'
 
-    
   def map_status (self, status):
     mapped_status = list (status)
-    if (len(mapped_status)> self.procs_max) : self.procs_max = len(mapped_status)
     for i in range(len(mapped_status)) :
       mapped_status[i] = self.config ['default']['proc_status'][mapped_status[i]]
     return "".join(mapped_status)
@@ -361,22 +360,20 @@ class Monitor(multiprocessing.Process):
     return 0
 
   def refresh (self,actual_interval):
-    if self.procs_max <= 10 : self.procs_max = 10
-	
-    format_str = '  {0:>4} : {1:<12} : {2:>8} → [{3:<' + str(self.procs_max) + '}] → {4:>8}|{5:>5}  {6:>6}|{7:>5}   '
+    self.format_str     = '  {0:>4} : {1:<12} : {2:>8} → [{3:<' + str(self.max_workers) + '}] → {4:>8}|{5:>5}  {6:>6}|{7:>5}   '
     output = []
     output_str = ''
-    self.empty_title = format_str.format('','','','','','','', '')
+    self.empty_title = self.format_str.format('','','','','','','', '')
     l_width = len(self.empty_title)
     l_title = len(self.config['title'])
     
     self.top_banner =  tb.render256('[%B|FG118|BG127|C|' + str(l_width) + ':' + self.config['title'] + '%]')
     
-    header = format_str.format(
+    header = self.format_str.format(
       '#Seq', 
       tb.render('[%LGREEN:Step%]',align='<',width=12), 
       tb.render('[%LRED:Pending%]',align='>',width=8), 
-      tb.render256('[%B|FG087|BG235|C|' + str(self.procs_max) + ':Workers%]'),
+      tb.render256('[%B|FG087|BG235|C|' + str(self.max_workers) + ':Workers%]'),
       tb.render('[%LGREEN:Done%]',align='>',width=8), 
       tb.render('[%RED:Error%]',align='>',width=5), 
       'Rate', 
@@ -394,9 +391,6 @@ class Monitor(multiprocessing.Process):
     if self.last_wf_status is None :
       self.last_wf_status = self.wf_status
 
-    # debug only 
-    # gen_log(comp = 'Monitor', task_uid=self.task_uid , loglvl = 'DEBUG', logtxt = str(self.wf_status), q_log=self.q_log)
-
 
     for idx in range(len(self.wf_status.keys())):  
       for step in  self.wf_status.keys() :
@@ -411,11 +405,11 @@ class Monitor(multiprocessing.Process):
           if _last_workers_status == '.' * len(_workers_status): _workers_status = _last_workers_status
           if _workers_status != '.' * len(_workers_status) :
             _step   =  tb.render('[%LGREEN|BRIGHT:'  + step + '%]',align='<'  ,width=12)
-            _workers = tb.render256('[%B|FG087|BG235|L|' + str(self.procs_max) + ':' + _workers_status + '%]')
+            _workers = tb.render256('[%B|FG087|BG235|L|' + str(self.max_workers) + ':' + _workers_status + '%]')
             
           else:
             _step   =  tb.render('[%DGRAY:'     + step + '%]',align='<'  ,width=12)
-            _workers = tb.render256('[%B|FG087|BG235|L|' + str(self.procs_max) + ':' + _workers_status + '%]')
+            _workers = tb.render256('[%B|FG087|BG235|L|' + str(self.max_workers) + ':' + _workers_status + '%]')
             
           
           _pending = tb.render('[%LRED:'      + str(self.get_qsize(step))                       + '%]',align='>'  ,width=8)
@@ -425,7 +419,7 @@ class Monitor(multiprocessing.Process):
           if self.wf_status[step]['errors_count_sum'] > 99999:
             _error   = tb.render('[%RED:  MAX%]',align='>' ,width=5)
           
-          output.append (format_str.format(_seq, _step ,_pending, _workers, _done , _error,  rate_now, rate_avg))
+          output.append (self.format_str.format(_seq, _step ,_pending, _workers, _done , _error,  rate_now, rate_avg))
           
           break
     output.append (tb.render('[%LBLUE:' + '-' * len(self.empty_title) + '%]'))     
@@ -435,18 +429,6 @@ class Monitor(multiprocessing.Process):
     output.append(tb.render('[%LBLUE:' + '-' * len(self.empty_title) + '%]'))
     output.append(self.bottom_banner)
  
- 
-    """
-    ts = tb.get_timestamp() + ' - ' +  'Time elapsed : ' + str( int (tb.timer_check(self.start_time) )) + ' s'
-    
-    
-    
-    t = '-' * len(ts)
-    
-    bottom_title = ' ' * ((l_width - len(t))//2) +  t
-    bottom_title = bottom_title + ' ' * (l_width - len(bottom_title))
-    bottom_title = tb.render('[%BRIGHT|MAGENTA_BG:' + bottom_title + '%]').replace(t,ts)
-    """
     bottom_title=  tb.render256('[%B|FG226|BG127|C|' + str(l_width) + ':' + tb.get_timestamp() + ' - ' +  'Time elapsed : ' + str( int (tb.timer_check(self.start_time) )) + ' s%]')
     
     output.append (bottom_title) 
@@ -456,14 +438,31 @@ class Monitor(multiprocessing.Process):
     if self.config ['monitor']['refresh'] == True:  tb.cls()
     print (output_str)
       
-
+  def get_max_workers(self):
+    max_workers = 10
+    for idx in range(len(self.wf_status.keys())):  
+      for step in  self.wf_status.keys() :
+        if max_workers < len(self.wf_status[step]['workers']):
+          max_workers = len(self.wf_status[step]['workers'])
+    self.max_workers = max_workers
+    return
+    
+    
+    
   def run(self): 
     print ("Monitor started : pid = " + str(self.pid))
     now = tb.timer_start()
     while True:
       try :
+        # read message
         message = self.get_message()
-        if message is None : continue
+        
+        # if no message, continue
+        if message is None : 
+          time.sleep(0.1)
+          continue
+        
+        # if message is __END_TASK__
         if message  == self.config['default']['end_task']:  
           # Monitor end task command coming in
           self.end_task_count +=1
@@ -474,7 +473,9 @@ class Monitor(multiprocessing.Process):
             self.q_mtr.put(self.config['default']['end_task'])
             time.sleep(random.uniform(0, 1))
             continue
+        
         else:
+          
           # regular task coming in
           end_task_count  = 0
           self.wf_status = message
@@ -482,13 +483,16 @@ class Monitor(multiprocessing.Process):
           if (tb.timer_check(now)) >= self.config ['monitor']['refresh_interval']  : 
             # now it's time to refresh
             if self.wf_status is None: continue
+            if self.max_workers is None: self.get_max_workers()
+            # refresh the screen
             self.refresh(actual_interval=tb.timer_check(now))
             self.last_wf_status = self.wf_status
             now = tb.timer_start()
             
       except KeyboardInterrupt:
-        gen_log(comp = self.u_name, task_uid = self.task_uid , loglvl = 'INFO', logtxt =  'CTL-C Interrupted!', q_log=self.q_log, log_filter=self.log_filter)
+        gen_log(comp = self.u_name, task_uid = self.task_uid , loglvl = 'INFO', logtxt = self.u_name  +  ': CTL-C Interrupted!', q_log=self.q_log, log_filter=self.log_filter)
         self.q_mgr.put(self.config ['default']['kill_task'])
+        
       except Exception as err:
         gen_log(comp = self.u_name, task_uid = self.task_uid , loglvl = 'ERROR', logtxt = err, q_log=self.q_log, log_filter=self.log_filter)
     pass
@@ -577,42 +581,46 @@ class Logger(multiprocessing.Process):
   def run(self): 
     print ("Logger started : pid = " + str(self.pid))
     while True:
-      message = self.get_message()
-      
-      # normal log msg coming in(looping to consume more)
-      if message != self.end_task :
-        self.own_end_rcvd = 0
-        if 'log_level' in message :
-          if self.config['default']['log_levels'][message['log_level']] < self.log_level : 
-            continue      
-        self.log_messages.append(message)
+      try:
+        message = self.get_message()
         
-      # When error, write log immediately 
-      if len(self.log_messages) >= self.log_batch - 1 or message['log_level'] == 'ERROR':
-        self.log_it()    
-        
-      # log every (log_interval) seconds
-      if (tb.timer_check(self.log_time)  > self.log_interval) :
-        self.log_it()
+        # normal log msg coming in(looping to consume more)
+        if message != self.end_task :
+          self.own_end_rcvd = 0
+          if 'log_level' in message :
+            if self.config['default']['log_levels'][message['log_level']] < self.log_level : 
+              continue      
+          self.log_messages.append(message)
+          
+        # When error, write log immediately 
+        if len(self.log_messages) >= self.log_batch - 1 or message['log_level'] == 'ERROR':
+          self.log_it()    
+          
+        # log every (log_interval) seconds
+        if (tb.timer_check(self.log_time)  > self.log_interval) :
+          self.log_it()
 
 
-      # in case of timeout, message = None
-      if message is None:
-        gen_log(comp = self.u_name, task_uid = self.task_uid , loglvl = 'DEBUG', logtxt = 'Log message timeout: ' + str(self.q_timeout), q_log=self.q_log)
-        self.log_it()
-             
-        
-      # own end task coming in - stopping the logger            
-      if message == self.end_task and self.own_end_rcvd < self.end_task_max  : 
-        self.own_end_rcvd +=1
-        self.q_log.put(self.end_task)
-        
+        # in case of timeout, message = None
+        if message is None:
+          gen_log(comp = self.u_name, task_uid = self.task_uid , loglvl = 'DEBUG', logtxt = 'Log message timeout: ' + str(self.q_timeout), q_log=self.q_log)
+          self.log_it()
+               
+          
+        # own end task coming in - stopping the logger            
+        if message == self.end_task and self.own_end_rcvd < self.end_task_max  : 
+          self.own_end_rcvd +=1
+          self.q_log.put(self.end_task)
+          
 
-      # own end task coming in and reached max limit - stop the logger now
-      if message == self.end_task and self.own_end_rcvd >= self.end_task_max  : 
-        self.log_it()    
-        break   
-        
+        # own end task coming in and reached max limit - stop the logger now
+        if message == self.end_task and self.own_end_rcvd >= self.end_task_max  : 
+          self.log_it()    
+          break   
+      except KeyboardInterrupt:
+        gen_log(comp = self.u_name, task_uid = self.task_uid , loglvl = 'INFO', logtxt = self.u_name + ': CTL-C Interrupted!', q_log=self.q_log)
+        self.q_mgr.put(self.config['default']['kill_task'])
+        break         
     pass    
 
 
@@ -690,7 +698,10 @@ class Manager(multiprocessing.Process):
       self.wf_status[name]['errors_count_sum']    = sum(self.wf_status[name]['errors_count'])
       
     return
-
+  
+  def kill_proc(self, pid):
+    p = psutil.Process(pid)
+    p.kill()  
 
   def clean_procs(self, step_name=None, terminate=True, join=True):
     if step_name is None:
@@ -698,7 +709,9 @@ class Manager(multiprocessing.Process):
         name  = step['name']
         gen_log(comp = self.u_name, task_uid = self.task_uid , loglvl = 'DEBUG', log_filter= self.log_filter, logtxt = 'Teminationg processes [' + name + '] - ' + str(len(self.step_workers[name])) + ' ... ', q_log=self.q_log) 
         for w in self.step_workers[name] : 
-          if terminate: w.terminate()
+          if terminate: 
+            #w.terminate()
+            self.kill_proc(w.pid)
           if join : w.join()
 
       gen_log(comp = self.u_name, task_uid = self.task_uid , loglvl = 'DEBUG',  log_filter= self.log_filter, logtxt = 'Stopping Monitor and Logger', q_log=self.q_log) 
@@ -712,7 +725,9 @@ class Manager(multiprocessing.Process):
       name  = step_name
       gen_log(comp = self.u_name, task_uid = self.task_uid , loglvl = 'DEBUG',  log_filter= self.log_filter, logtxt = 'Teminationg processes [' + name + '] - ' + str(len(self.step_workers[name])) + ' ... ', q_log=self.q_log)  
       for w in self.step_workers[name] : 
-        if terminate: w.terminate()
+        if terminate: 
+          #w.terminate()
+          self.kill_proc(w.pid)
         if join : 
           w.join()
       
@@ -721,7 +736,7 @@ class Manager(multiprocessing.Process):
 
   def wait_proc_start(self, proc, name):
     while True:
-      time.sleep(0.5)
+      time.sleep(0.2)
       if proc.pid is not None:
         message =  '[' +  name + '] pid=' + str(proc.pid)
         if name != 'Logger' :
@@ -863,6 +878,6 @@ class Manager(multiprocessing.Process):
       self.run_wf_wrapper()
       return
     except KeyboardInterrupt:
-      print('Manager CTL-C Interrupted!')   
+      print(self.u_name  +  ' : CTL-C Interrupted!')   
       self.clean_procs() 
       return
