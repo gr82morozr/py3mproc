@@ -154,13 +154,12 @@ class Worker(multiprocessing.Process):
     self.param['task_uid'] = self.task_uid
     if self.param['last_call'] == False: self.tasks_count +=1
     self.update_status('running')
-    self.log_task(loglvl = 'DEBUG', logtxt = 'TASK={' +  str(self.task)  + '}')
     self.param['task'] = self.task
     self.task_exec_time = tb.timer_start()
     # invoke external function to implement the task
     self.param = self.exec_task(param=self.param)
     self.task_exec_time = int(tb.timer_check(self.task_exec_time) * 1000)/1000
-    self.log_task(loglvl = 'DEBUG', logtxt = 'PARAM={' +  str(self.param)  + '}')
+    self.log_task(loglvl = 'DEBUG', logtxt = 'task_param={' +  str(self.param)  + '}')
     self.update_status('done')
     pass 
  
@@ -177,7 +176,7 @@ class Worker(multiprocessing.Process):
     elif  status == 'done' :
       self.log_task(loglvl = 'INFO', logtxt = status + ' - #' + str(self.tasks_count) + ' task is completed, exec_time = ' + str(self.task_exec_time) + ' s')
     elif  status == 'waiting' :
-      self.log_task(loglvl = 'INFO', logtxt = status + ' - for next task. ')
+      self.log_task(loglvl = 'INFO', logtxt = status + ' for next task ... ')
     else :
       self.log_task(loglvl = 'DEBUG',logtxt = status + ' - #' + str(self.tasks_count) + ', task status = ' + status)
     
@@ -215,7 +214,8 @@ class Worker(multiprocessing.Process):
       try:
         if self.q_in is not None:
           self.get_task()
-         
+          self.log_task(loglvl = 'DEBUG', logtxt = 'new_task = ' +  str(self.task)  )
+
           # check trigger start run once
           if self.trigger_start == True and self.task == self.start_task :
             self.own_end_rcvd = 0
@@ -246,14 +246,14 @@ class Worker(multiprocessing.Process):
               self.end_task_dic[self.task] =1
             
             if self.end_task_dic[self.task] < self.end_task_max :  
-              # if receives other workers end-task, and NOT exceeds limit, pass on
+              # if receives other workers end_task, and NOT exceeds limit, pass on
               time.sleep(random.uniform(0, 1))
               self.q_in.put(self.task)
               time.sleep(random.uniform(0, 1))
-              self.log_task(loglvl = 'INFO', logtxt = 'others end-task received, passing on ... ')
+              self.log_task(loglvl = 'INFO', logtxt = 'end_task received (' + str(self.task) + '), passing on ... ')
               continue
             else : 
-            # if receives other workers end-task, if reached limit, focrce end this worker
+            # if receives other workers end_task, if reached limit, focrce end this worker
             
               # last call has no 'task' passed in, just execute to close off remaining tasks
               if self.param['last_call_required'] == True:
@@ -263,7 +263,7 @@ class Worker(multiprocessing.Process):
                 self.log_task(loglvl = 'INFO',  logtxt = 'last_call task completed')
               
               # if no last call required, 
-              self.log_task(loglvl = 'DEBUG', logtxt = 'others end-task : ' + str(self.end_task_dic[self.task])+ '/' + str(self.end_task_max) + ' : to be ended')
+              self.log_task(loglvl = 'DEBUG', logtxt = 'end_task : ' + str(self.end_task_dic[self.task])+ '/' + str(self.end_task_max) + ' : to be ended')
               self.update_status('ended')
               break
 
@@ -280,7 +280,7 @@ class Worker(multiprocessing.Process):
       except Exception as err: 
         self.errors_count +=1
         self.update_status('error')
-        self.log_task(loglvl = 'ERROR', logtxt = 'TASK={' +  str(self.task)  + '}')
+        self.log_task(loglvl = 'ERROR', logtxt = 'task={' +  str(self.task)  + '}')
         self.log_task(loglvl = 'ERROR', logtxt = 'Error :' + str(err) )
         if  self.trigger_start == False and self.task is not None: 
           # pass task to other works to retry
@@ -306,7 +306,7 @@ class Monitor(multiprocessing.Process):
     self.q_mgr          = q_mgr
     self.q_log          = q_log
     self.u_name         = 'Monitor'
-    self.task_uid       = '22222222'
+    self.task_uid       = '00000001'
     self.end_task_max   = self.config['default']['end_task_max']
     self.end_task_count = 0
     self.q_timeout      = 1
@@ -367,7 +367,7 @@ class Monitor(multiprocessing.Process):
     l_width = len(self.empty_title)
     l_title = len(self.config['title'])
     
-    self.top_banner =  tb.render256('[%B|FG118|BG127|C|' + str(l_width) + ':' + self.config['title'] + '%]')
+    self.top_banner =  tb.render256('[%B|FG226|BG127|C|' + str(l_width) + ':' + self.config['title'] + '%]')
     
     header = self.format_str.format(
       '#Seq', 
@@ -511,7 +511,7 @@ class Logger(multiprocessing.Process):
     multiprocessing.Process.__init__(self)  
     self.config         = config
     self.u_name         = 'Logger'
-    self.task_uid       = '11111111'
+    self.task_uid       = '00000002'
     self.q_mtr          = q_mtr
     self.q_log          = q_log
     self.q_mgr          = q_mgr
@@ -546,7 +546,7 @@ class Logger(multiprocessing.Process):
       except : 
         pass
      
-  def log_it(self):
+  def flush_log(self):
     log_formatted = ''
     self.log_time = tb.timer_start()
     
@@ -592,31 +592,39 @@ class Logger(multiprocessing.Process):
               continue      
           self.log_messages.append(message)
           
+        # When buffer full, write log immediately 
+        if len(self.log_messages) >= self.log_batch - 1:
+          self.flush_log()    
+        
         # When error, write log immediately 
-        if len(self.log_messages) >= self.log_batch - 1 or message['log_level'] == 'ERROR':
-          self.log_it()    
+        if 'log_level' in message :
+          if message['log_level'] == 'ERROR':
+            self.flush_log() 
           
         # log every (log_interval) seconds
         if (tb.timer_check(self.log_time)  > self.log_interval) :
-          self.log_it()
+          self.flush_log()
 
 
         # in case of timeout, message = None
         if message is None:
           gen_log(comp = self.u_name, task_uid = self.task_uid , loglvl = 'DEBUG', logtxt = 'Log message timeout: ' + str(self.q_timeout), q_log=self.q_log)
-          self.log_it()
+          self.flush_log()
                
           
         # own end task coming in - stopping the logger            
         if message == self.end_task and self.own_end_rcvd < self.end_task_max  : 
+          self.flush_log() 
           self.own_end_rcvd +=1
           self.q_log.put(self.end_task)
           
 
         # own end task coming in and reached max limit - stop the logger now
         if message == self.end_task and self.own_end_rcvd >= self.end_task_max  : 
-          self.log_it()    
+          self.flush_log()    
           break   
+
+        
       except KeyboardInterrupt:
         gen_log(comp = self.u_name, task_uid = self.task_uid , loglvl = 'INFO', logtxt = self.u_name + ': CTL-C Interrupted!', q_log=self.q_log)
         self.q_mgr.put(self.config['default']['kill_task'])
@@ -662,9 +670,7 @@ class Manager(multiprocessing.Process):
     
   def get_message(self):
     try :  
-      self.task_uid = tb.get_uid()
       message = self.q_mgr.get(timeout=self.q_timeout)
-      
       return message
     except : 
       return None
@@ -707,29 +713,28 @@ class Manager(multiprocessing.Process):
     if step_name is None:
       for step in self.wf_config['workflow']['steps']:
         name  = step['name']
-        gen_log(comp = self.u_name, task_uid = self.task_uid , loglvl = 'DEBUG', log_filter= self.log_filter, logtxt = 'Teminationg processes [' + name + '] - ' + str(len(self.step_workers[name])) + ' ... ', q_log=self.q_log) 
         for w in self.step_workers[name] : 
-          if terminate: 
-            #w.terminate()
-            self.kill_proc(w.pid)
-          if join : w.join()
+          gen_log(comp = self.u_name, task_uid = self.task_uid , loglvl = 'INFO', log_filter= self.log_filter, logtxt = 'Teminating processes [' + name + ' | pid=' + str(w.pid) + '] ... ', q_log=self.q_log) 
+          if psutil.pid_exists(w.pid):
+            if terminate:  self.kill_proc(w.pid)
+            if join : w.join()
 
-      gen_log(comp = self.u_name, task_uid = self.task_uid , loglvl = 'DEBUG',  log_filter= self.log_filter, logtxt = 'Stopping Monitor and Logger', q_log=self.q_log) 
-      time.sleep(10)
-	  # turn off Logger and Monitor processes
-      self.q_log.put (self.wf_config['default']['end_task'])
+	    # turn off Logger and Monitor processes
+      gen_log(comp = self.u_name, task_uid = self.task_uid , loglvl = 'INFO',  log_filter= self.log_filter, logtxt = 'Stopping Monitor and Logger', q_log=self.q_log) 
       self.q_mtr.put (self.wf_config['default']['end_task'])    
       self.monitor.join()      
+      time.sleep(10)
+
+      self.q_log.put (self.wf_config['default']['end_task'])
       self.logger.join()
+      time.sleep(10)
     else:
       name  = step_name
-      gen_log(comp = self.u_name, task_uid = self.task_uid , loglvl = 'DEBUG',  log_filter= self.log_filter, logtxt = 'Teminationg processes [' + name + '] - ' + str(len(self.step_workers[name])) + ' ... ', q_log=self.q_log)  
+      gen_log(comp = self.u_name, task_uid = self.task_uid , loglvl = 'INFO',  log_filter= self.log_filter, logtxt = 'Teminating processes [' + name + '] - ' + str(len(self.step_workers[name])) + ' ... ', q_log=self.q_log)  
       for w in self.step_workers[name] : 
-        if terminate: 
-          #w.terminate()
-          self.kill_proc(w.pid)
-        if join : 
-          w.join()
+        if psutil.pid_exists(w.pid):
+          if terminate: self.kill_proc(w.pid)
+          if join : w.join()
       
     return 
 
@@ -741,7 +746,6 @@ class Manager(multiprocessing.Process):
         message =  '[' +  name + '] pid=' + str(proc.pid)
         if name != 'Logger' :
           gen_log(comp =self.u_name, task_uid=self.task_uid, loglvl = 'DEBUG', logtxt = message, q_log=self.q_log)
-        print (message)
         break;
     pass  
   
@@ -869,8 +873,8 @@ class Manager(multiprocessing.Process):
         break
 
   def close_wf (self):
-    gen_log(comp = self.u_name, task_uid = self.task_uid , loglvl = 'INFO', logtxt = 'All completed', q_log=self.q_log)
     self.clean_procs()
+    gen_log(comp = self.u_name, task_uid = self.task_uid , loglvl = 'INFO', logtxt = 'All completed', q_log=self.q_log)
 
   def run(self): 
     tb.cls()

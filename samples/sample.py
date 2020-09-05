@@ -63,7 +63,7 @@ def get_config() :
           "join_wait"     : False,    
           "trigger_start" : False,                             
           "name"          : "task7", 
-          "mproc_num"     : 20
+          "mproc_num"     : 10
         }
       ]
     },
@@ -74,8 +74,8 @@ def get_config() :
     },
 
     "logger" : {
-      "log_file"      : "R:/TEMP1/1.log",
-      "log_level"     : "DEBUG"
+      "log_file"      : "R:/TEMP1/" + MODULE_NAME + ".log",
+      "log_level"     : "INFO"
     }
   }
   return config
@@ -92,7 +92,7 @@ def task2(param) :
   task, log, output = (param['task'], param['log_task_func'], param['output_task_func'])
   if param['last_call'] == False :
     time.sleep (random.uniform(0, 0.1))
-    for _ in range( int(40 * random.uniform(0, 1))) : 
+    for _ in range( int(30 * random.uniform(0, 1))) : 
       output( 'task')  
   else :
     tb.write_file ('C:/temp/aa.log', 'done')
@@ -127,7 +127,7 @@ def task6(param) :
 def task7(param) :
   task, log, output = (param['task'], param['log_task_func'], param['output_task_func'])
   time.sleep (0.01 * random.uniform(0, 1))
-  output( 'task')  
+  output('task')  
   return param 
 
 
