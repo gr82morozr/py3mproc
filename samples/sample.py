@@ -75,7 +75,7 @@ def get_config() :
 
     "logger" : {
       "log_file"      : "R:/TEMP1/" + MODULE_NAME + ".log",
-      "log_level"     : "INFO"
+      "log_level"     : "DEBUG"
     }
   }
   return config

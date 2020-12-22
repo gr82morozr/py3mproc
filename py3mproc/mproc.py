@@ -93,10 +93,10 @@ def gen_log(comp=None, task_uid=None, loglvl=None, logtxt=None, q_log=None, log_
  -------------------------------------------------------------
 """
 class Worker(multiprocessing.Process):
-  def __init__(self, config, idx, q_log , q_mgr):
+  def __init__(self, config, idx, q_log , q_mgr, name):
     multiprocessing.Process.__init__(self)  
-    self.config         = config
-    self.name           = config['name']
+    self.config         = config[name]
+    self.name           = self.config['name']
     self.id             = idx
     self.u_name         = self.name + '_' + str(self.id)
     self.task_uid       = tb.get_uid()
@@ -122,14 +122,15 @@ class Worker(multiprocessing.Process):
     self.end_task_dic   = {}
     
     self.param          = {
+                            'name'               : self.name,
                             'u_name'             : self.u_name, 
                             'task_uid'           : self.task_uid,
                             'last_call_required' : False, 
                             'last_call'          : False,
                             'log_task_func'      : self.log_task,
                             'output_task_func'   : self.output_task,
-                            'task'               : None
-                            
+                            'task'               : None,
+                            'config'             : config
                           }
     self.task_exec_time = 0
     
@@ -359,13 +360,16 @@ class Monitor(multiprocessing.Process):
         return step['q_in'].qsize()
     return 0
 
-  def refresh (self,actual_interval):
+  def refresh (self,actual_interval=1):
     self.format_str     = '  {0:>4} : {1:<12} : {2:>8} → [{3:<' + str(self.max_workers) + '}] → {4:>8}|{5:>5}  {6:>6}|{7:>5}   '
-    output = []
-    output_str = ''
+    output              = []
+    output_str          = ''
     self.empty_title = self.format_str.format('','','','','','','', '')
     l_width = len(self.empty_title)
     l_title = len(self.config['title'])
+    
+    # Avoid divided by 0 error
+    if actual_interval == 0 : actual_interval = 1
     
     self.top_banner =  tb.render256('[%B|FG226|BG127|C|' + str(l_width) + ':' + self.config['title'] + '%]')
     
@@ -422,6 +426,8 @@ class Monitor(multiprocessing.Process):
           output.append (self.format_str.format(_seq, _step ,_pending, _workers, _done , _error,  rate_now, rate_avg))
           
           break
+          
+          
     output.append (tb.render('[%LBLUE:' + '-' * len(self.empty_title) + '%]'))     
     output.append( '  {0:>4} - {1:<12} : {2:>11}'.format (' ', tb.render('[%LYELLOW:Logger%]', align='<',width=12), tb.render('[%LCYAN:' + str(self.q_log.qsize()) + '%]', align='>', width=11)  ))
     output.append( '  {0:>4} - {1:<12} : {2:>11}'.format (' ', tb.render('[%LYELLOW:Monitor%]',align='<',width=12), tb.render('[%LCYAN:' + str(self.q_mtr.qsize()) + '%]', align='>', width=11)  ))
@@ -660,8 +666,8 @@ class Manager(multiprocessing.Process):
     self.q_timeout              = self.wf_config['default']['q_timeout']
     self.log_filter             = self.wf_config['logger']['log_level']
     self.message                = None
-    self.step_config            = {}
-    self.step_workers           = {}
+    self.worker_config            = {}
+    self.workers                = {}
     self.wf_status              = {}
     self.wf_ended               = False
 
@@ -688,9 +694,9 @@ class Manager(multiprocessing.Process):
         name = step['name']
         self.wf_status[name] = {}
         self.wf_status[name]['seq']               = index
-        self.wf_status[name]['workers']           = ['null'] * self.step_config[name]['mproc_num']
-        self.wf_status[name]['tasks_count']       = [0] * self.step_config[name]['mproc_num']
-        self.wf_status[name]['errors_count']      = [0] * self.step_config[name]['mproc_num']
+        self.wf_status[name]['workers']           = ['null'] * self.worker_config[name]['mproc_num']
+        self.wf_status[name]['tasks_count']       = [0] * self.worker_config[name]['mproc_num']
+        self.wf_status[name]['errors_count']      = [0] * self.worker_config[name]['mproc_num']
         self.wf_status[name]['tasks_count_sum']   = sum(self.wf_status[name]['tasks_count'])
         self.wf_status[name]['errors_count_sum']  = sum(self.wf_status[name]['errors_count'])
     else :
@@ -713,7 +719,7 @@ class Manager(multiprocessing.Process):
     if step_name is None:
       for step in self.wf_config['workflow']['steps']:
         name  = step['name']
-        for w in self.step_workers[name] : 
+        for w in self.workers[name] : 
           gen_log(comp = self.u_name, task_uid = self.task_uid , loglvl = 'INFO', log_filter= self.log_filter, logtxt = 'Teminating processes [' + name + ' | pid=' + str(w.pid) + '] ... ', q_log=self.q_log) 
           if psutil.pid_exists(w.pid):
             if terminate:  self.kill_proc(w.pid)
@@ -730,8 +736,8 @@ class Manager(multiprocessing.Process):
       time.sleep(10)
     else:
       name  = step_name
-      gen_log(comp = self.u_name, task_uid = self.task_uid , loglvl = 'INFO',  log_filter= self.log_filter, logtxt = 'Teminating processes [' + name + '] - ' + str(len(self.step_workers[name])) + ' ... ', q_log=self.q_log)  
-      for w in self.step_workers[name] : 
+      gen_log(comp = self.u_name, task_uid = self.task_uid , loglvl = 'INFO',  log_filter= self.log_filter, logtxt = 'Teminating processes [' + name + '] - ' + str(len(self.workers[name])) + ' ... ', q_log=self.q_log)  
+      for w in self.workers[name] : 
         if psutil.pid_exists(w.pid):
           if terminate: self.kill_proc(w.pid)
           if join : w.join()
@@ -757,21 +763,21 @@ class Manager(multiprocessing.Process):
     # setup q_out and others
     for step in self.wf_config['workflow']['steps']:
       name = step['name']
-      self.step_config[name] = step
-      self.step_config[name]['q_out'] = multiprocessing.Queue()
-      self.step_config[name]['task_module'] = self.wf_config['task_module']
-      self.step_config[name].update(self.wf_config['default'])
-      self.step_config[name].update(self.wf_config['logger'])
-      self.step_config[name].update(self.wf_config['monitor'])
+      self.worker_config[name] = step
+      self.worker_config[name]['q_out'] = multiprocessing.Queue()
+      self.worker_config[name]['task_module'] = self.wf_config['task_module']
+      self.worker_config[name].update(self.wf_config['default'])
+      self.worker_config[name].update(self.wf_config['logger'])
+      self.worker_config[name].update(self.wf_config['monitor'])
     
     # setup q_in, connect all steps by queues
     for step in self.wf_config['workflow']['steps']:
       name  = step['name']
       dependency_name = step["dependency"]
       if len(step["dependency"]) > 0:
-        self.step_config[name]['q_in'] = self.step_config[dependency_name]['q_out']
+        self.worker_config[name]['q_in'] = self.worker_config[dependency_name]['q_out']
       else :
-        self.step_config[name]['q_in'] = None
+        self.worker_config[name]['q_in'] = None
 
     # start Logger & Monitor
     self.logger       = Logger (config = self.wf_config, q_mtr = self.q_mtr, q_log = self.q_log, q_mgr = self.q_mgr)
@@ -792,8 +798,9 @@ class Manager(multiprocessing.Process):
       name  = step['name']
       dependency_name = step["dependency"]
       if step['join_wait'] == False:    
-        self.step_workers[name] = [ Worker(config=self.step_config[name], idx = i, q_log = self.q_log, q_mgr = self.q_mgr) for i in range(self.step_config[name]['mproc_num']) ]
-        for w in self.step_workers[name] : 
+        self.workers[name] = [ Worker(config=self.worker_config, idx = i, q_log = self.q_log, q_mgr = self.q_mgr, name=name ) for i in range(self.worker_config[name]['mproc_num']) ]
+        #self.workers[name] = [ Worker(config=self.worker_config, idx = i, q_log = self.q_log, q_mgr = self.q_mgr ) for i in range(self.worker_config[name]['mproc_num']) ]
+        for w in self.workers[name] : 
           w.start()
           self.wait_proc_start(w, name)
         time.sleep(2)
@@ -829,22 +836,22 @@ class Manager(multiprocessing.Process):
       
       # start listening for "join_wait=True" step
       if step['join_wait'] == True : 
-        self.step_workers[name] = [ Worker(config=self.step_config[name], idx = i, q_log = self.q_log, q_mgr = self.q_mgr) for i in range(self.step_config[name]['mproc_num']) ]
-        for w in self.step_workers[name] : 
+        self.workers[name] = [ Worker(config=self.worker_config, idx = i, q_log = self.q_log, q_mgr = self.q_mgr, name=name) for i in range(self.worker_config[name]['mproc_num']) ]
+        for w in self.workers[name] : 
           w.start()
           self.wait_proc_start(w, name)     
       
       # send start signal, this is specifically for task , who doesn't need prev task output as it's input, 
       # - only requires a singal to start   
       if step['trigger_start'] == True :  
-        for id in range(self.step_config[name]['mproc_num']):
+        for id in range(self.worker_config[name]['mproc_num']):
           start_signal = self.wf_config['default']['start_task'] +  self.wf_config['default']['id_template'].replace('ID',str(id))
-          self.send_task_control_signal(q = self.step_config[name]['q_in'], number = 1, signal = start_signal)
+          self.send_task_control_signal(q = self.worker_config[name]['q_in'], number = 1, signal = start_signal)
       
       # Always send end signal, it should be at the LAST of the queues. ( however Python has FIFO issue for queues)
-      for id in range(self.step_config[name]['mproc_num']):
+      for id in range(self.worker_config[name]['mproc_num']):
         end_signal = self.wf_config['default']['end_task'] +  self.wf_config['default']['id_template'].replace('ID',str(id))
-        self.send_task_control_signal(q = self.step_config[name]['q_in'], number = 1, signal = end_signal)
+        self.send_task_control_signal(q = self.worker_config[name]['q_in'], number = 1, signal = end_signal)
 
     pass
 
