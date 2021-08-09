@@ -83,6 +83,48 @@ def gen_log(comp=None, task_uid=None, loglvl=None, logtxt=None, q_log=None, log_
   log['log_text']  = logtxt
   q_log.put(log)
 
+
+
+
+def set_proc_priority(level, pid=None):
+    """Set the priority/nice of the application.
+    
+    Numbers may be used (in the style of Linux from -20 (high) to 19 (low),
+    or as text, such as 'belownormal' or 'realtime'.
+    """
+    process = psutil.Process(pid)
+    try:
+        level = level.lower().replace(' ', '')
+        
+        if level == 'realtime':
+            process.nice(psutil.REALTIME_PRIORITY_CLASS)
+        elif level == 'high':
+            process.nice(psutil.HIGH_PRIORITY_CLASS)
+        elif level == 'abovenormal':
+            process.nice(psutil.ABOVE_NORMAL_PRIORITY_CLASS)
+        elif level == 'normal':
+            process.nice(psutil.NORMAL_PRIORITY_CLASS)
+        elif level == 'belownormal':
+            process.nice(psutil.BELOW_NORMAL_PRIORITY_CLASS)
+        if level == 'low':
+            process.nice(psutil.IDLE_PRIORITY_CLASS)
+            
+    except AttributeError:
+        if level < -13:
+            process.nice(psutil.REALTIME_PRIORITY_CLASS)
+        elif -13 <= level < -7:
+            process.nice(psutil.HIGH_PRIORITY_CLASS)
+        elif -7 <= level < 0:
+            process.nice(psutil.ABOVE_NORMAL_PRIORITY_CLASS)
+        elif 0 <= level < 7:
+            process.nice(psutil.NORMAL_PRIORITY_CLASS)
+        elif 7 <= level < 12:
+            process.nice(psutil.BELOW_NORMAL_PRIORITY_CLASS)
+        elif 13 <= level:
+            process.nice(psutil.IDLE_PRIORITY_CLASS) 
+
+
+
 """
  -------------------------------------------------------------
  -  Worker
@@ -155,12 +197,13 @@ class Worker(multiprocessing.Process):
     self.param['task_uid'] = self.task_uid
     if self.param['last_call'] == False: self.tasks_count +=1
     self.update_status('running')
-    self.param['task'] = self.task
+
     self.task_exec_time = tb.timer_start()
+    self.param['task'] = self.task
     # invoke external function to implement the task
+    #self.log_task(loglvl = 'DEBUG', logtxt = 'task_param={' +  str(self.param)  + '}')
     self.param = self.exec_task(param=self.param)
     self.task_exec_time = int(tb.timer_check(self.task_exec_time) * 1000)/1000
-    self.log_task(loglvl = 'DEBUG', logtxt = 'task_param={' +  str(self.param)  + '}')
     self.update_status('done')
     pass 
  
@@ -282,7 +325,7 @@ class Worker(multiprocessing.Process):
         self.errors_count +=1
         self.update_status('error')
         self.log_task(loglvl = 'ERROR', logtxt = 'task={' +  str(self.task)  + '}')
-        self.log_task(loglvl = 'ERROR', logtxt = 'Error :' + str(err) )
+        self.log_task(loglvl = 'ERROR', logtxt = 'Error : ' + str(err) )
         if  self.trigger_start == False and self.task is not None: 
           # pass task to other works to retry
           self.q_in.put(self.task)
@@ -734,6 +777,8 @@ class Manager(multiprocessing.Process):
       self.q_log.put (self.wf_config['default']['end_task'])
       self.logger.join()
       time.sleep(10)
+
+
     else:
       name  = step_name
       gen_log(comp = self.u_name, task_uid = self.task_uid , loglvl = 'INFO',  log_filter= self.log_filter, logtxt = 'Teminating processes [' + name + '] - ' + str(len(self.workers[name])) + ' ... ', q_log=self.q_log)  
@@ -753,7 +798,7 @@ class Manager(multiprocessing.Process):
         if name != 'Logger' :
           gen_log(comp =self.u_name, task_uid=self.task_uid, loglvl = 'DEBUG', logtxt = message, q_log=self.q_log)
         break;
-    pass  
+    return proc.pid 
   
   def start_wf(self):
 	# ===================================
@@ -785,9 +830,12 @@ class Manager(multiprocessing.Process):
     
     self.logger.start()
     self.wait_proc_start(self.logger, 'Logger')
+
     
     self.monitor.start()
-    self.wait_proc_start(self.monitor, 'Monitor')
+    monitor_pid = self.wait_proc_start(self.monitor, 'Monitor')
+    set_proc_priority("high",monitor_pid)
+    
     
     time.sleep(2)
     self.update_wf_status()

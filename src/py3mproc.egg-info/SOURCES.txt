@@ -1,0 +1,11 @@
+MANIFEST.in
+README.md
+setup.cfg
+setup.py
+src/py3mproc/__init__.py
+src/py3mproc/mproc.py
+src/py3mproc.egg-info/PKG-INFO
+src/py3mproc.egg-info/SOURCES.txt
+src/py3mproc.egg-info/dependency_links.txt
+src/py3mproc.egg-info/requires.txt
+src/py3mproc.egg-info/top_level.txt
