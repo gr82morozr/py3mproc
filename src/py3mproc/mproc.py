@@ -109,19 +109,20 @@ def set_proc_priority(level, pid=None):
         if level == 'low':
             process.nice(psutil.IDLE_PRIORITY_CLASS)
             
-    except AttributeError:
-        if level < -13:
-            process.nice(psutil.REALTIME_PRIORITY_CLASS)
-        elif -13 <= level < -7:
-            process.nice(psutil.HIGH_PRIORITY_CLASS)
-        elif -7 <= level < 0:
-            process.nice(psutil.ABOVE_NORMAL_PRIORITY_CLASS)
-        elif 0 <= level < 7:
-            process.nice(psutil.NORMAL_PRIORITY_CLASS)
-        elif 7 <= level < 12:
-            process.nice(psutil.BELOW_NORMAL_PRIORITY_CLASS)
-        elif 13 <= level:
-            process.nice(psutil.IDLE_PRIORITY_CLASS) 
+    except Exception as err: 
+        if level == 'realtime':
+            process.nice(-16)
+        elif level == 'high':
+            process.nice(-10)
+        elif level == 'abovenormal':
+            process.nice(-4)
+        elif level == 'normal':
+            process.nice(3)
+        elif level == 'belownormal':
+            process.nice(9)
+        if level == 'low':
+            process.nice(16)
+            
 
 
 
@@ -833,9 +834,11 @@ class Manager(multiprocessing.Process):
 
     
     self.monitor.start()
-    monitor_pid = self.wait_proc_start(self.monitor, 'Monitor')
-    set_proc_priority("high",monitor_pid)
-    
+    self.wait_proc_start(self.monitor, 'Monitor')
+    #monitor_pid = self.wait_proc_start(self.monitor, 'Monitor')
+    #set_proc_priority("high",monitor_pid)
+    #process = psutil.Process(self.wait_proc_start(self.monitor, 'Monitor'))
+    #process.nice(-10)
     
     time.sleep(2)
     self.update_wf_status()

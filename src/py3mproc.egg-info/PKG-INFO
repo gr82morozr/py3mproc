@@ -1,28 +1,28 @@
 Metadata-Version: 2.1
 Name: py3mproc
-Version: 0.1.14
+Version: 0.1.22
 Summary: A Python3 multiprocessing workflow framework
 Home-page: https://github.com/gr82morozr/py3mproc.git
 Author: Great Tomorrow
 Author-email: gr82morozr@gmail.com
 License: MIT
-Description: # Python3 Multiprocessing Framework 
-        
-        
-        For install :
-        > pip install py3mproc 
-        
-        For upgrade:
-        > pip install py3toolbox --upgrade --no-cache-dir
-        
-        For PyPi upload:
-        > python setup.py sdist upload -r pypi
-        
-        
 Keywords: multiprocessing,workflow
-Platform: UNKNOWN
 Classifier: Programming Language :: Python :: 3
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Requires-Python: >=3.6
 Description-Content-Type: text/markdown
+License-File: LICENSE
+
+# Python3 Multiprocessing Framework 
+
+
+For install :
+> pip install py3mproc 
+
+For upgrade:
+> pip install py3toolbox --upgrade --no-cache-dir
+
+For PyPi upload:
+> python setup.py sdist upload -r pypi
+

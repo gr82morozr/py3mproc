@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setuptools.setup(
     name          = 'py3mproc',
-    version       = '0.1.14',
+    version       = '0.1.22',
     author        = 'Great Tomorrow',
     author_email  = 'gr82morozr@gmail.com',
     description   = 'A Python3 multiprocessing workflow framework',
